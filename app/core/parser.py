@@ -1,10 +1,15 @@
 import base64
 import json
 import re
+import os
 from io import BytesIO
 from PIL import Image
-import ollama
+from ollama import Client
 from app.core.config import config
+
+# Initialize Ollama client with host from environment variable (defaults to localhost)
+ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+ollama_client = Client(host=ollama_host)
 
 def resize_image(image_path: str, max_size: int = 1024) -> str:
     """Resize image and return as base64 string."""
@@ -26,7 +31,7 @@ def parse_receipt(image_path: str) -> dict:
         max_size = config.get("max_image_size", 1024)
         image_b64 = resize_image(image_path, max_size)
         
-        response = ollama.chat(
+        response = ollama_client.chat(
             model=config.get("model_name", "qwen2.5vl:3b"),
             messages=[
                 {
