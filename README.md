@@ -130,3 +130,11 @@ Temuan penting dari proses optimasi system prompt:
 ## 5. Rekomendasi
 
 **Model yang direkomendasikan: `qwen2.5vl:3b`** — lebih cepat, lebih akurat, dan lebih konsisten dalam mengikuti instruksi.
+
+---
+
+## 6. Evaluasi Aplikasi Split Bill
+
+Berdasarkan hasil pengujian secara keseluruhan, aplikasi berjalan dengan sangat baik apabila gambar struk yang diunggah masih berada dalam batasan (*known limitations*) yang telah disebutkan sebelumnya. Fitur-fitur utama seperti ekstraksi harga, alokasi klaim tiap pengguna, hingga perhitungan proporsional untuk biaya tambahan (charges) dapat berfungsi dengan lancar sesuai ekspektasi.
+
+Namun, kendala terkait **pembulatan** (misalnya item *rounding* dengan nilai yang sangat kecil seperti -6 atau istilah lokal yang bervariasi) masih tetap ada dan belum teratasi pada versi aplikasi saat ini. Meskipun demikian, untuk mayoritas penggunaan dengan struk standar yang jelas, aplikasi ini sudah sangat memadai dan siap digunakan.

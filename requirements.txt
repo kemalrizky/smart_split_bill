@@ -1,0 +1,8 @@
+ollama
+rapidfuzz
+tqdm
+requests
+pillow
+pyyaml
+streamlit
+
