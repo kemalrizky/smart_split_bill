@@ -201,7 +201,13 @@ Namun, kendala terkait **pembulatan** (misalnya item *rounding* dengan nilai yan
 
 ---
 
-### 4. Tutorial Menjalankan Aplikasi via Docker
+### 4. Demo Penggunaan Aplikasi
+
+Silakan lihat video demo penggunaan aplikasi pada [link berikut](https://drive.google.com/file/d/1esPAOCBZw2XnQ28hhmY1l5G7h6Ohh4wZ/view?usp=drive_link)
+
+---
+
+### 5. Tutorial Menjalankan Aplikasi via Docker
 
 Aplikasi ini dapat dijalankan menggunakan Docker. Karena proses ekstraksi (*parsing*) sangat diuntungkan oleh GPU lokal melalui **Ollama**, Docker container ini dirancang untuk hanya membungkus UI Streamlit dan akan berkomunikasi dengan instance Ollama di mesin utama (host) Anda.
 
