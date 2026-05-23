@@ -167,6 +167,7 @@ smart_split_bill/
 ├── requirements.txt
 └── README.md
 ```
+---
 
 ### 2. Evaluasi Aplikasi Split Bill
 
