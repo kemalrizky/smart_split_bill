@@ -1,12 +1,13 @@
-# Laporan Benchmark: VLM Receipt Parser
-**Proyek:** Split Bill App — OCR-free Receipt Parsing  
-**Tanggal:** Mei 2026  
-**Model:** `qwen2.5vl:3b` vs `gemma4:e2b` | **Hardware:** AMD Radeon RX 6700 XT via Ollama + ROCm
+# Split Bill App
 
----
+## Laporan Benchmark VLM Receipt Parser
 
-## 1. Metodologi
+### 1. Metodologi
+**Model:** `qwen2.5vl:3b` vs `gemma4:e2b`
 
+**Hardware:** AMD Radeon RX 6700 XT via Ollama + ROCm
+
+**Metode Pengujian:**
 | Komponen | Detail |
 |---|---|
 | Image Preprocessing | Resize ke max 1600px, base64 encoding |
@@ -48,9 +49,9 @@ IGNORE:
 
 ---
 
-## 2. Hasil Benchmark
+### 2. Hasil Benchmark
 
-### Qwen2.5-VL-3B
+#### Qwen2.5-VL-3B
 
 | Receipt | Time | Item Name | Item Price | Charge Name | Charge Amt |
 |---|---|---|---|---|---|
@@ -60,7 +61,7 @@ IGNORE:
 | TC4 — HokBen | 4.93s | 0.69 | 0% | 0.63 | 50% |
 | **Rata-rata** | **9.50s** | **0.86** | **70%** | **0.78** | **75%** |
 
-### Gemma4:e2b
+#### Gemma4:e2b
 
 | Receipt | Time | Item Name | Item Price | Charge Name | Charge Amt |
 |---|---|---|---|---|---|
@@ -72,7 +73,7 @@ IGNORE:
 
 *\*TC3 charges adalah artefak scoring — ground truth kosong sehingga false positive tidak terdeteksi.*
 
-### Perbandingan Akhir
+#### Perbandingan Akhir
 
 | Metrik | `qwen2.5vl:3b` | `gemma4:e2b` | Pemenang |
 |---|---|---|---|
@@ -86,9 +87,9 @@ IGNORE:
 
 ---
 
-## 3. Analisis Kegagalan
+### 3. Analisis Kegagalan
 
-### Qwen2.5-VL-3B
+#### Qwen2.5-VL-3B
 
 | Kasus | Penyebab |
 |---|---|
@@ -98,7 +99,7 @@ IGNORE:
 | Sub-item JCO terdaftar sebagai item terpisah (TC3) | Rule indentasi tidak cukup efektif |
 | Semua harga `0.0` di HokBen (TC4) | Foto asli buram — bukan masalah model/prompt |
 
-### Gemma4:e2b
+#### Gemma4:e2b
 
 | Kasus | Penyebab |
 |---|---|
@@ -107,7 +108,7 @@ IGNORE:
 | Item utama JCO tidak terdeteksi (TC3) | Layout dengan banyak sub-item membingungkan model |
 | Prompt optimasi memperburuk beberapa skor | *Overcorrection* — menambah rule membuat Gemma lebih agresif mengabaikan konten |
 
-### Prompt Sensitivity
+#### Prompt Sensitivity
 
 Temuan penting dari proses optimasi system prompt:
 
@@ -116,7 +117,7 @@ Temuan penting dari proses optimasi system prompt:
 
 ---
 
-## 4. Known Limitations
+### 4. Known Limitations
 
 | Limitasi | Dampak | Status |
 |---|---|---|
@@ -127,14 +128,84 @@ Temuan penting dari proses optimasi system prompt:
 
 ---
 
-## 5. Rekomendasi
+### 5. Rekomendasi
 
 **Model yang direkomendasikan: `qwen2.5vl:3b`** — lebih cepat, lebih akurat, dan lebih konsisten dalam mengikuti instruksi.
 
 ---
 
-## 6. Evaluasi Aplikasi Split Bill
+# Main App
+
+## 1. Repository Structure
+
+```
+smart_split_bill/
+├── .dockerignore
+├── Dockerfile
+├── app/
+│   ├── core/
+│   │   ├── calculator.py
+│   │   └── parser.py
+│   ├── pages/
+│   │   ├── 1_Upload.py
+│   │   ├── 2_Parsed_Results.py
+│   │   ├── 3_Claiming.py
+│   │   └── 4_Results.py
+│   └── Home.py
+├── config/
+│   └── config.yaml
+├── data/
+│   ├── receipts/
+│   │   ├── bon-solaria.jpg
+│   │   ├── bon-paul-bakery.jpg
+│   │   ├── bon-jco.jpg
+│   │   └── bon-hokben.jpg
+│   ├── temp/
+│   └── test/
+│       └── bon-test.jpg
+│
+├── requirements.txt
+└── README.md
+```
+
+## 2. Evaluasi Aplikasi Split Bill
 
 Berdasarkan hasil pengujian secara keseluruhan, aplikasi berjalan dengan sangat baik apabila gambar struk yang diunggah masih berada dalam batasan (*known limitations*) yang telah disebutkan sebelumnya. Fitur-fitur utama seperti ekstraksi harga, alokasi klaim tiap pengguna, hingga perhitungan proporsional untuk biaya tambahan (charges) dapat berfungsi dengan lancar sesuai ekspektasi.
 
 Namun, kendala terkait **pembulatan** (misalnya item *rounding* dengan nilai yang sangat kecil seperti -6 atau istilah lokal yang bervariasi) masih tetap ada dan belum teratasi pada versi aplikasi saat ini. Meskipun demikian, untuk mayoritas penggunaan dengan struk standar yang jelas, aplikasi ini sudah sangat memadai dan siap digunakan.
+
+---
+
+## 3. Tutorial Menjalankan Aplikasi via Docker
+
+Aplikasi ini dapat dijalankan menggunakan Docker. Karena proses ekstraksi (*parsing*) sangat diuntungkan oleh GPU lokal melalui **Ollama**, Docker container ini dirancang untuk hanya membungkus UI Streamlit dan akan berkomunikasi dengan instance Ollama di mesin utama (host) Anda.
+
+### Langkah 1: Persiapan Ollama & Model Lokal
+Sebelum menjalankan container, pastikan Anda telah menginstal [Ollama](https://ollama.com/) di komputer Anda dan mengunduh model Vision Language yang dibutuhkan.
+Buka terminal Anda dan jalankan perintah berikut untuk mengunduh model:
+```bash
+ollama run qwen2.5vl:3b
+```
+*(Catatan: Anda dapat mengubah jenis model yang digunakan dengan mengedit parameter `model_name` di dalam file `config/config.yaml` dan memastikan model tersebut telah diunduh via Ollama).*
+
+### Langkah 2: Build Docker Image
+Buka terminal di root direktori proyek ini, lalu jalankan perintah:
+```bash
+docker build -t smart_split_bill .
+```
+
+### Langkah 3: Menjalankan Container
+Agar container Docker dapat berkomunikasi dengan Ollama yang berjalan di host komputer Anda, Anda perlu meneruskan environment variable `OLLAMA_HOST`.
+
+**Untuk pengguna Windows & Mac:**
+```bash
+docker run -p 8501:8501 -e OLLAMA_HOST=http://host.docker.internal:11434 smart_split_bill
+```
+
+**Untuk pengguna Linux:**
+Gunakan opsi `--network host` agar container dapat langsung mengakses localhost mesin utama:
+```bash
+docker run --network host -e OLLAMA_HOST=http://localhost:11434 smart_split_bill
+```
+
+Setelah container berhasil berjalan, buka browser Anda dan akses **http://localhost:8501**.
