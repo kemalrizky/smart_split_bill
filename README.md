@@ -134,9 +134,9 @@ Temuan penting dari proses optimasi system prompt:
 
 ---
 
-# Main App
+## Main App
 
-## 1. Repository Structure
+### 1. Repository Structure
 
 ```
 smart_split_bill/
@@ -168,7 +168,7 @@ smart_split_bill/
 └── README.md
 ```
 
-## 2. Evaluasi Aplikasi Split Bill
+### 2. Evaluasi Aplikasi Split Bill
 
 Berdasarkan hasil pengujian secara keseluruhan, aplikasi berjalan dengan sangat baik apabila gambar struk yang diunggah masih berada dalam batasan (*known limitations*) yang telah disebutkan sebelumnya. Fitur-fitur utama seperti ekstraksi harga, alokasi klaim tiap pengguna, hingga perhitungan proporsional untuk biaya tambahan (charges) dapat berfungsi dengan lancar sesuai ekspektasi.
 
@@ -176,11 +176,11 @@ Namun, kendala terkait **pembulatan** (misalnya item *rounding* dengan nilai yan
 
 ---
 
-## 3. Tutorial Menjalankan Aplikasi via Docker
+### 3. Tutorial Menjalankan Aplikasi via Docker
 
 Aplikasi ini dapat dijalankan menggunakan Docker. Karena proses ekstraksi (*parsing*) sangat diuntungkan oleh GPU lokal melalui **Ollama**, Docker container ini dirancang untuk hanya membungkus UI Streamlit dan akan berkomunikasi dengan instance Ollama di mesin utama (host) Anda.
 
-### Langkah 1: Persiapan Ollama & Model Lokal
+#### Langkah 1: Persiapan Ollama & Model Lokal
 Sebelum menjalankan container, pastikan Anda telah menginstal [Ollama](https://ollama.com/) di komputer Anda dan mengunduh model Vision Language yang dibutuhkan.
 Buka terminal Anda dan jalankan perintah berikut untuk mengunduh model:
 ```bash
@@ -188,7 +188,7 @@ ollama run qwen2.5vl:3b
 ```
 *(Catatan: Anda dapat mengubah jenis model yang digunakan dengan mengedit parameter `model_name` di dalam file `config/config.yaml` dan memastikan model tersebut telah diunduh via Ollama).*
 
-### Langkah 2: Build Docker Image
+#### Langkah 2: Build Docker Image
 Buka terminal di root direktori proyek ini, lalu jalankan perintah:
 ```bash
 docker build -t smart_split_bill .
