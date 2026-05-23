@@ -177,7 +177,31 @@ Namun, kendala terkait **pembulatan** (misalnya item *rounding* dengan nilai yan
 
 ---
 
-### 3. Tutorial Menjalankan Aplikasi via Docker
+### 3. Rekomendasi Improvement
+
+1. **Meningkatkan Akurasi Ekstraksi Item dan Harga**: 
+    - Menggunakan model yang lebih besar dan lebih baik dalam menangani tugas OCR 
+    - Menggunakan teknik post-processing untuk memperbaiki kesalahan ekstraksi
+
+2. **Mengatasi Masalah Pembulatan**: 
+    - Menambahkan aturan khusus untuk menangani pembulatan
+    - Menggunakan teknik *rounding correction* untuk memperbaiki kesalahan pembulatan
+
+3. **Menangani Gambar Buram atau Resolusi Rendah**: 
+    - Menggunakan teknik *image enhancement* untuk memperbaiki kualitas gambar
+    - Menggunakan model yang lebih baik dalam menangani gambar buram atau resolusi rendah
+
+4. **Menangani Item Nama Multi-baris**: 
+    - Menggunakan teknik *line detection* untuk mendeteksi item nama multi-baris
+    - Menggunakan teknik *line grouping* untuk mengelompokkan item nama multi-baris
+
+5. **Menangani False Positive Charges**: 
+    - Menambahkan aturan khusus untuk menangani false positive charges
+    - Menggunakan teknik *false positive filtering* untuk memfilter false positive charges
+
+---
+
+### 4. Tutorial Menjalankan Aplikasi via Docker
 
 Aplikasi ini dapat dijalankan menggunakan Docker. Karena proses ekstraksi (*parsing*) sangat diuntungkan oleh GPU lokal melalui **Ollama**, Docker container ini dirancang untuk hanya membungkus UI Streamlit dan akan berkomunikasi dengan instance Ollama di mesin utama (host) Anda.
 
