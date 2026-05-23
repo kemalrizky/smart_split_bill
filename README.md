@@ -225,7 +225,7 @@ Buka terminal di root direktori proyek ini, lalu jalankan perintah:
 docker build -t smart_split_bill .
 ```
 
-### Langkah 3: Menjalankan Container
+#### Langkah 3: Menjalankan Container
 Agar container Docker dapat berkomunikasi dengan Ollama yang berjalan di host komputer Anda, Anda perlu meneruskan environment variable `OLLAMA_HOST`.
 
 **Untuk pengguna Windows & Mac:**
