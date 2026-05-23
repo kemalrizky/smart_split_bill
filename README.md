@@ -1,200 +1,132 @@
 # Laporan Benchmark: VLM Receipt Parser
 **Proyek:** Split Bill App — OCR-free Receipt Parsing  
 **Tanggal:** Mei 2026  
-**Model yang Dibandingkan:** `qwen2.5vl:3b` vs `gemma4:e2b`  
-**Environment:** Lokal (AMD Radeon RX 6700 XT, ROCm via Ollama)
+**Model:** `qwen2.5vl:3b` vs `gemma4:e2b` | **Hardware:** AMD Radeon RX 6700 XT via Ollama + ROCm
 
 ---
 
-## 1. Latar Belakang
-
-Laporan ini mendokumentasikan hasil benchmark dua Vision-Language Model (VLM) untuk keperluan ekstraksi data struk belanja (*receipt parsing*) tanpa menggunakan OCR tradisional. Tujuan utama adalah memilih model yang paling akurat dan efisien untuk digunakan sebagai komponen inti aplikasi *split bill*.
-
-Model menerima input berupa foto struk belanja dan diharapkan mengembalikan output dalam format JSON terstruktur yang berisi:
-- **Items**: daftar item yang dipesan beserta kuantitas dan harga
-- **Charges**: biaya tambahan seperti pajak, *service charge*, dan pembulatan
-- **Currency**: mata uang yang digunakan
-
----
-
-## 2. Metodologi
-
-### 2.1 Setup Teknis
+## 1. Metodologi
 
 | Komponen | Detail |
 |---|---|
-| Hardware | AMD Radeon RX 6700 XT (12GB VRAM) |
-| Runtime | Ollama + ROCm (via Ollama-For-AMD-Installer) |
-| Python Library | `ollama-python`, `rapidfuzz`, `Pillow` |
-| Image Preprocessing | Resize ke max 1600px (base64 encoding) |
+| Image Preprocessing | Resize ke max 1600px, base64 encoding |
+| Scoring — Nama | Fuzzy matching via `rapidfuzz` (0.0–1.0) |
+| Scoring — Harga/Amount | Exact match (%) |
+| Warmup | Text-only call sebelum benchmark untuk menghindari cold start |
 
-### 2.2 System Prompt
-
-Model dikonfigurasi dengan system prompt berikut untuk mengontrol perilaku ekstraksi:
-
-```
-You are a receipt parser. Extract only the relevant information from the receipt image.
-
-Rules:
-- An item is anything that was ordered (food, drinks, or services) with a price
-- A charge is any financial adjustment such as tax, service charge, or discount
-- Ignore everything else: restaurant name, address, taglines, cashier info,
-  loyalty points, table numbers, and any text without a clear price
-- If the same item appears multiple times as separate lines, list each one separately
-- If a line has no price and is at the same indentation level as the previous item,
-  consolidate it into the previous item's name
-- If a line has no price and is indented beneath the previous item,
-  it is a sub-item description — ignore it
-```
-
-### 2.3 Skema Output JSON
-
-```json
-{
-  "items": [
-    {"name": "item name", "quantity": 1, "price": 0.00}
-  ],
-  "charges": [
-    {"name": "charge name", "amount": 0.00}
-  ],
-  "currency": "IDR"
-}
-```
-
-### 2.4 Dataset Test
-
-Empat struk belanja dipilih dengan karakteristik yang berbeda-beda untuk menguji ketahanan model:
+**Dataset:** 4 struk dengan karakteristik berbeda:
 
 | # | Restoran | Tantangan Unik |
 |---|---|---|
 | TC1 | Solaria | Item nama dua baris, *negative rounding* |
 | TC2 | Paul Bakery | Duplikasi item tanpa kuantitas |
-| TC3 | JCO | Item paket dengan sub-item, PB1 sudah termasuk harga |
-| TC4 | HokBen | Foto buram (*blurry*), istilah lokal (Pembulatan) |
+| TC3 | JCO | Item paket dengan sub-item, PB1 termasuk harga |
+| TC4 | HokBen | Foto buram, istilah lokal (Pembulatan) |
 
-### 2.5 Metrik Evaluasi
+**System Prompt:**
+```
+You are a receipt parser. Extract only the relevant information from the receipt image.
 
-| Metrik | Deskripsi |
-|---|---|
-| `avg_time` | Rata-rata waktu respons per struk (detik) |
-| `avg_item_name_score` | Skor kesamaan nama item (fuzzy matching, 0.0–1.0) |
-| `item_price_accuracy` | Akurasi harga item (exact match, %) |
-| `avg_charge_name_score` | Skor kesamaan nama charges (fuzzy matching, 0.0–1.0) |
-| `charge_amount_accuracy` | Akurasi jumlah charges (exact match, %) |
+ITEMS:
+- An item is anything that was ordered (food, drinks, or services) with a price
+- If the same item appears multiple times as separate lines, list each one separately
+- Include all items regardless of whether the name appears abbreviated or unusual
+- If a line has no price and is at the same indentation level as the previous item,
+  consolidate it into the previous item's name
+- If a line has no price and is indented beneath the previous item, ignore it
 
-Perbandingan nama menggunakan **fuzzy string matching** (`rapidfuzz`) untuk mengakomodasi perbedaan kapitalisasi dan ejaan minor. Perbandingan harga menggunakan **exact match** karena angka tidak memiliki ambiguitas.
+CHARGES:
+- A charge is any financial adjustment such as tax, service charge, or discount
+- Any line with an explicit amount positioned between Sub Total and Total is a charge
+- Only include a charge if it has an explicit amount listed next to it
+
+IGNORE:
+- Summary lines: Sub Total, Total, Grand Total, Cash, Change,
+  Taxable Amount, Taxable Amt, Before Rounding, Payment
+- Restaurant name, address, taglines, cashier info, loyalty points, table numbers
+```
 
 ---
 
-## 3. Hasil Benchmark
+## 2. Hasil Benchmark
 
-### 3.1 Ringkasan Hasil
+### Qwen2.5-VL-3B
+
+| Receipt | Time | Item Name | Item Price | Charge Name | Charge Amt |
+|---|---|---|---|---|---|
+| TC1 — Solaria | 13.08s | 0.96 | 80% | 0.50 | 50% |
+| TC2 — Paul Bakery | 5.59s | 0.97 | 100% | 1.00 | 100% |
+| TC3 — JCO | 14.38s | 0.80 | 100% | 1.00* | 100%* |
+| TC4 — HokBen | 4.93s | 0.69 | 0% | 0.63 | 50% |
+| **Rata-rata** | **9.50s** | **0.86** | **70%** | **0.78** | **75%** |
+
+### Gemma4:e2b
+
+| Receipt | Time | Item Name | Item Price | Charge Name | Charge Amt |
+|---|---|---|---|---|---|
+| TC1 — Solaria | 24.69s | 0.96 | 100% | 0.50 | 0% |
+| TC2 — Paul Bakery | 14.06s | 0.67 | 33% | 0.23 | 0% |
+| TC3 — JCO | 12.55s | 0.29 | 0% | 1.00* | 100%* |
+| TC4 — HokBen | 13.84s | 0.93 | 100% | 0.00 | 0% |
+| **Rata-rata** | **16.29s** | **0.71** | **58%** | **0.43** | **25%** |
+
+*\*TC3 charges adalah artefak scoring — ground truth kosong sehingga false positive tidak terdeteksi.*
+
+### Perbandingan Akhir
 
 | Metrik | `qwen2.5vl:3b` | `gemma4:e2b` | Pemenang |
 |---|---|---|---|
-| Avg response time | **4.89s** | 15.14s | Qwen ✅ |
-| Avg item name score | **0.86** | 0.69 | Qwen ✅ |
-| Item price accuracy | 70.0% | **70.8%** | Gemma ✅ |
-| Avg charge name score | **0.71** | 0.63 | Qwen ✅ |
-| Charge amount accuracy | **75.0%** | 50.0% | Qwen ✅ |
+| Avg response time | **9.50s** | 16.29s | Qwen ✅ |
+| Avg item name score | **0.86** | 0.71 | Qwen ✅ |
+| Avg item price accuracy | **70%** | 58% | Qwen ✅ |
+| Avg charge name score | **0.78** | 0.43 | Qwen ✅ |
+| Avg charge amount accuracy | **75%** | 25% | Qwen ✅ |
 
-**Kesimpulan: `qwen2.5vl:3b` unggul di 4 dari 5 metrik.**
-
-### 3.2 Hasil Per Test Case — Qwen2.5-VL-3B
-
-| Test Case | Item Name | Item Price | Charge Name | Charge Amount |
-|---|---|---|---|---|
-| TC1 — Solaria | 0.96 | 80% | 0.46 | 50% |
-| TC2 — Paul Bakery | 1.0 | 100% | 1.0 | 100% |
-| TC3 — JCO | 1.0 | 100% | 1.0 | 100% |
-| TC4 — HokBen | 0.69 | 0% | 0.38 | 50% |
-
-### 3.3 Hasil Per Test Case — Gemma4:e2b
-
-| Test Case | Item Name | Item Price | Charge Name | Charge Amount |
-|---|---|---|---|---|
-| TC1 — Solaria | 0.96 | 80% | 0.50 | 0% |
-| TC2 — Paul Bakery | 0.75 | 67% | 0.24 | 0% |
-| TC3 — JCO | 0.0 | 0% | 1.0* | 1.0* |
-| TC4 — HokBen | 1.0 | 100% | 0.29 | 0% |
-
-*\*Skor TC3 charges untuk Gemma adalah artefak scoring — kedua predicted dan ground truth mengembalikan charges kosong sehingga dihitung sebagai 1.0.*
+**Qwen unggul di semua 5 metrik.**
 
 ---
 
-## 4. Analisis Kegagalan
+## 3. Analisis Kegagalan
 
-### 4.1 Kegagalan Qwen2.5-VL-3B
+### Qwen2.5-VL-3B
 
-**TC1 — Item nama dua baris (Kwetiau Seafood Goreng)**
-- Model memisahkan `Kwetiau Seafood` dan `Goreng` menjadi dua item terpisah
-- `Goreng` salah diklasifikasikan sebagai item dengan harga subtotal (Rp 129.096)
-- Penyebab: setelah *resize* ke 1600px, perbedaan indentasi antar baris masih sulit terdeteksi
-- Rule tambahan di system prompt tidak cukup efektif untuk kasus ini
+| Kasus | Penyebab |
+|---|---|
+| Kwetiau Seafood \| Goreng terpecah (TC1) | Indentasi dua baris tidak terdeteksi setelah resize |
+| Rounding: -6 tidak terdeteksi (TC1) | Nilai terlalu kecil, diabaikan model |
+| Siomay price `20000` vs `20002` (TC1) | Detail digit hilang akibat kompresi resize |
+| Sub-item JCO terdaftar sebagai item terpisah (TC3) | Rule indentasi tidak cukup efektif |
+| Semua harga `0.0` di HokBen (TC4) | Foto asli buram — bukan masalah model/prompt |
 
-**TC1 — Negative rounding tidak terdeteksi**
-- Charges `Rounding: -6` tidak dikembalikan oleh model
-- Penyebab: nilai `-6` sangat kecil secara visual dan mungkin diabaikan oleh model
+### Gemma4:e2b
 
-**TC1 — Harga Siomay tidak akurat**
-- Model mengembalikan `20000` bukan `20002`
-- Penyebab: dua digit terakhir (`02`) hilang akibat kompresi *resize*
+| Kasus | Penyebab |
+|---|---|
+| Summary lines masuk sebagai charges (TC1, TC2, TC3) | *Instruction following* lemah — pola konsisten di 3 dari 4 TC |
+| Hanya 3 dari 6 item terdeteksi (TC2) | Model mengabaikan item dengan nama non-standard |
+| Item utama JCO tidak terdeteksi (TC3) | Layout dengan banyak sub-item membingungkan model |
+| Prompt optimasi memperburuk beberapa skor | *Overcorrection* — menambah rule membuat Gemma lebih agresif mengabaikan konten |
 
-**TC4 — HokBen (foto buram)**
-- Nama item terpotong: `Rice Osa` (Rice Only RB), `Yaki RB` (Beef Teriyaki RB)
-- Semua harga item dikembalikan sebagai `0.0`
-- Penyebab: kualitas foto asli yang buram, bukan masalah model atau prompt
+### Prompt Sensitivity
 
-### 4.2 Kegagalan Gemma4:e2b
+Temuan penting dari proses optimasi system prompt:
 
-**TC2 — Misklasifikasi charges**
-- Model mengklasifikasikan `Taxable Amount`, `Cash Given`, dan `Change` sebagai charges
-- Penyebab: Gemma kurang konsisten dalam mengikuti instruksi sistem untuk mengabaikan *summary lines*
-
-**TC3 — Gagal mendeteksi item utama**
-- Model mengembalikan `items: []` — tidak ada item yang terdeteksi
-- Total dan Payment diklasifikasikan sebagai charges
-- Penyebab: layout struk JCO dengan banyak sub-item membingungkan model
-
-**TC4 — Misklasifikasi charges**
-- Model mengklasifikasikan `SUB TOTAL` dan `TOTAL` sebagai charges
-- Charges yang sebenarnya (`PJK Resto 10%`, `Pembulatan`) tidak terdeteksi
-- Pola ini konsisten dengan TC2 — Gemma kesulitan membedakan *financial adjustment* dari *summary lines*
-
-**Pola kegagalan utama Gemma:** Secara konsisten memasukkan *summary lines* (subtotal, total, cash, change) sebagai charges di TC2 dan TC4. Ini mengindikasikan kelemahan pada *instruction following* untuk model MoE di ukuran parameter kecil.
+- **Qwen** merespons prompt dengan baik — perbaikan rule meningkatkan skor secara konsisten
+- **Gemma** tidak stabil terhadap perubahan prompt — memperbaiki satu kasus sering memperburuk kasus lain, mengindikasikan kelemahan *instruction following* pada model MoE di ukuran parameter kecil
 
 ---
 
-## 5. Known Limitations
+## 4. Known Limitations
 
-| Limitasi | Dampak | Rekomendasi |
+| Limitasi | Dampak | Status |
 |---|---|---|
-| Foto buram atau resolusi rendah | Harga item tidak terbaca, nama terpotong | Tambahkan validasi kualitas gambar sebelum inference |
-| Item nama multi-baris | Item terpecah, subtotal salah diklasifikasikan sebagai harga | Post-processing konsolidasi nama item |
-| Nilai sangat kecil (e.g. Rounding: -6) | Sering diabaikan model | Tambahkan rule eksplisit untuk nilai negatif di system prompt |
-| Thousands separator (e.g. 9,637) | JSON parsing error | Sudah ditangani di `clean_json_output()` |
-| Sample size kecil (4 struk) | Hasil tidak cukup untuk kesimpulan statistik | Tambah dataset minimal 20-50 struk untuk evaluasi lebih valid |
+| Foto buram/resolusi rendah | Harga dan nama item tidak terbaca | Dokumentasi — validasi kualitas gambar diperlukan |
+| Item nama multi-baris | Item terpecah, subtotal salah jadi harga | Dokumentasi — butuh post-processing |
+| Nilai charges sangat kecil (e.g. -6) | Sering diabaikan model | Dokumentasi |
+| False positive charges dari teks deskriptif | Charges tidak ada masuk ke output | Sebagian ditangani via prompt |
 
 ---
 
-## 6. Rekomendasi
+## 5. Rekomendasi
 
-Berdasarkan hasil benchmark, **`qwen2.5vl:3b` direkomendasikan** sebagai model untuk aplikasi *split bill* dengan alasan:
-
-1. **Lebih cepat** — 4.89s vs 15.14s (3x lebih cepat)
-2. **Lebih akurat pada nama item** — 0.86 vs 0.69
-3. **Lebih akurat pada charges** — 75% vs 50%
-4. **Lebih konsisten dalam instruction following** — tidak memasukkan summary lines sebagai charges
-5. **Performa sempurna pada TC2 dan TC3** — 1.0 di semua metrik
-
-Satu-satunya metrik di mana Gemma sedikit unggul adalah *item price accuracy* (70.8% vs 70.0%) — perbedaan yang tidak signifikan.
-
----
-
-## 7. Langkah Selanjutnya
-
-- [ ] Implementasi konsolidasi item duplikat (*consolidation logic*)
-- [ ] Implementasi *split bill* logic berbasis claims per orang
-- [ ] Tambah validasi kualitas gambar sebelum dikirim ke model
-- [ ] Perluas dataset test case minimal 20 struk dari berbagai restoran
-- [ ] Evaluasi ulang dengan prompt yang dioptimasi untuk *negative charges*
+**Model yang direkomendasikan: `qwen2.5vl:3b`** — lebih cepat, lebih akurat, dan lebih konsisten dalam mengikuti instruksi.
